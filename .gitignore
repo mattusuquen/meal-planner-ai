@@ -1,0 +1,59 @@
+# ================================
+# Dependencies
+# ================================
+node_modules/
+server/node_modules/
+
+# ================================
+# Environment variables — NEVER commit these
+# ================================
+.env
+.env.local
+.env.*.local
+server/.env
+server/.env.local
+
+# ================================
+# Build output
+# ================================
+dist/
+build/
+server/dist/
+
+# ================================
+# Prisma generated client — regenerated on deploy
+# ================================
+server/generated/
+
+# ================================
+# Logs
+# ================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ================================
+# TypeScript
+# ================================
+*.tsbuildinfo
+
+# ================================
+# Vite
+# ================================
+vite.config.ts.timestamp-*
+
+# ================================
+# OS
+# ================================
+.DS_Store
+Thumbs.db
+
+# ================================
+# Editor
+# ================================
+.vscode/
+.idea/
+*.swp
+*.swo

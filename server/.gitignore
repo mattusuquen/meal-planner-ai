@@ -1,0 +1,10 @@
+# Covered by root .gitignore — this file kept for clarity if server is deployed standalone
+
+node_modules/
+dist/
+.env
+.env.local
+generated/
+*.log
+*.tsbuildinfo
+.DS_Store

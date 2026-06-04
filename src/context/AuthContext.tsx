@@ -13,6 +13,7 @@ import { api } from "../lib/api";
 
 interface AuthContextType {
   user: User | null;
+  profile: Omit<UserProfile, "updatedAt"> | null;
   plan: MealPlan | null;
   isLoading: boolean;
   saveProfile: (profile: Omit<UserProfile, "userId" | "updatedAt">) => Promise<void>;
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const [neonUser, setNeonUser] = useState<any>(null);
+  const [profile, setProfile] = useState<Omit<UserProfile, "updatedAt"> | null>(null);
   const [plan, setPlan] = useState<MealPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isRefreshingRef = useRef(false);
@@ -61,7 +63,10 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     if (!neonUser || isRefreshingRef.current) return;
     isRefreshingRef.current = true;
     try {
-      const planData = await api.getCurrentPlan(neonUser.id).catch(() => null);
+      const [planData, profileData] = await Promise.all([
+        api.getCurrentPlan(neonUser.id).catch(() => null),
+        api.getProfile(neonUser.id).catch(() => null),
+      ]);
       if (planData) {
         const pj = planData.planJson;
         setPlan({
@@ -74,6 +79,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
           createdAt: planData.createdAt,
         });
       }
+      if (profileData) setProfile(profileData);
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {
@@ -84,6 +90,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   async function saveProfile(profileData: Omit<UserProfile, "userId" | "updatedAt">) {
     if (!neonUser) throw new Error("User must be authenticated");
     await api.saveProfile(neonUser.id, profileData);
+    setProfile({ userId: neonUser.id, ...profileData });
     await refreshData();
   }
 
@@ -114,7 +121,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user: neonUser, plan, isLoading, saveProfile, generatePlan, refreshData, refreshMeal }}>
+    <AuthContext.Provider value={{ user: neonUser, profile, plan, isLoading, saveProfile, generatePlan, refreshData, refreshMeal }}>
       {children}
     </AuthContext.Provider>
   );

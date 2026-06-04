@@ -25,6 +25,8 @@ async function get(path: string) {
 }
 
 export const api = {
+  getProfile: (userId: string) => get(`/profile?userId=${userId}`),
+
   saveProfile: (
     userId: string,
     profile: Omit<UserProfile, "userId" | "updatedAt">

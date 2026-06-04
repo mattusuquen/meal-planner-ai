@@ -14,7 +14,9 @@ import {
 import { WeekView } from "../components/meal/WeekView";
 import { RecipeCard } from "../components/meal/RecipeCard";
 import { GroceryList } from "../components/meal/GroceryList";
-import type { Recipe } from "../types";
+import { EditProfileModal } from "../components/EditProfileModal";
+import { api } from "../lib/api";
+import type { Recipe, UserProfile } from "../types";
 
 type Tab = "week" | "recipes" | "grocery";
 
@@ -25,18 +27,41 @@ const tabs: { id: Tab; label: string; icon: typeof Calendar }[] = [
 ];
 
 export default function Profile() {
-  const { user, isLoading, plan, generatePlan, refreshMeal } = useAuth();
+  const { user, isLoading, plan, generatePlan, saveProfile, refreshMeal } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("week");
+  const [editProfile, setEditProfile] = useState<Omit<UserProfile, "updatedAt"> | null>(null);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   if (!user && !isLoading) return <Navigate to="/auth/sign-in" replace />;
   if (!plan && !isLoading) return <Navigate to="/onboarding" replace />;
   if (!plan) return null;
 
-  async function handleRegenerate() {
+  async function handleRegenerateClick() {
+    if (!user) return;
+    setIsFetchingProfile(true);
+    try {
+      const data = await api.getProfile(user.id);
+      setEditProfile(data);
+    } catch {
+      // Profile fetch failed — generate directly without editing
+      setIsRegenerating(true);
+      try {
+        await generatePlan();
+      } finally {
+        setIsRegenerating(false);
+      }
+    } finally {
+      setIsFetchingProfile(false);
+    }
+  }
+
+  async function handleConfirmRegenerate(updatedProfile: Omit<UserProfile, "userId" | "updatedAt">) {
     setIsRegenerating(true);
     try {
+      await saveProfile(updatedProfile);
       await generatePlan();
+      setEditProfile(null);
     } finally {
       setIsRegenerating(false);
     }
@@ -71,10 +96,10 @@ export default function Profile() {
           <Button
             variant="secondary"
             className="gap-2 shrink-0"
-            onClick={handleRegenerate}
-            disabled={isRegenerating}
+            onClick={handleRegenerateClick}
+            disabled={isRegenerating || isFetchingProfile}
           >
-            {isRegenerating ? (
+            {isRegenerating || isFetchingProfile ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <RefreshCcw className="w-4 h-4" />
@@ -181,6 +206,14 @@ export default function Profile() {
           <GroceryList groceryList={plan.groceryList} />
         )}
       </div>
+
+      {editProfile && (
+        <EditProfileModal
+          profile={editProfile}
+          onConfirm={handleConfirmRegenerate}
+          onClose={() => setEditProfile(null)}
+        />
+      )}
     </div>
   );
 }

@@ -14,9 +14,10 @@ const DAY_ABBR: Record<string, string> = {
 
 interface WeekViewProps {
   weeklySchedule: DayMeals[];
+  onRefreshMeal?: (day: string, mealType: string, currentMealName: string) => Promise<void>;
 }
 
-export function WeekView({ weeklySchedule }: WeekViewProps) {
+export function WeekView({ weeklySchedule, onRefreshMeal }: WeekViewProps) {
   const [activeDay, setActiveDay] = useState(0);
   const today = weeklySchedule[activeDay];
 
@@ -56,7 +57,15 @@ export function WeekView({ weeklySchedule }: WeekViewProps) {
 
           <div className="space-y-4">
             {today.meals.map((meal, i) => (
-              <RecipeCard key={i} recipe={meal} />
+              <RecipeCard
+                key={i}
+                recipe={meal}
+                onRefresh={
+                  onRefreshMeal
+                    ? () => onRefreshMeal(today.day, meal.type, meal.name)
+                    : undefined
+                }
+              />
             ))}
           </div>
         </>

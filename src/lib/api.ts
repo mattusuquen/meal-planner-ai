@@ -33,4 +33,7 @@ export const api = {
   generatePlan: (userId: string) => post("/plan/generate", { userId }),
 
   getCurrentPlan: (userId: string) => get(`/plan/current?userId=${userId}`),
+
+  refreshMeal: (userId: string, day: string, mealType: string, currentMealName: string) =>
+    post("/plan/refresh-meal", { userId, day, mealType, currentMealName }),
 };

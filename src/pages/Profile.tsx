@@ -25,7 +25,7 @@ const tabs: { id: Tab; label: string; icon: typeof Calendar }[] = [
 ];
 
 export default function Profile() {
-  const { user, isLoading, plan, generatePlan } = useAuth();
+  const { user, isLoading, plan, generatePlan, refreshMeal } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("week");
   const [isRegenerating, setIsRegenerating] = useState(false);
 
@@ -155,7 +155,10 @@ export default function Profile() {
 
         {/* Tab content */}
         {activeTab === "week" && (
-          <WeekView weeklySchedule={plan.weeklySchedule} />
+          <WeekView
+            weeklySchedule={plan.weeklySchedule}
+            onRefreshMeal={refreshMeal}
+          />
         )}
 
         {activeTab === "recipes" && (
@@ -164,7 +167,12 @@ export default function Profile() {
               {allRecipes.length} recipes across 7 days
             </p>
             {allRecipes.map((recipe, i) => (
-              <RecipeCard key={i} recipe={recipe} dayLabel={recipe.dayLabel} />
+              <RecipeCard
+                key={i}
+                recipe={recipe}
+                dayLabel={recipe.dayLabel}
+                onRefresh={() => refreshMeal(recipe.dayLabel, recipe.type, recipe.name)}
+              />
             ))}
           </div>
         )}

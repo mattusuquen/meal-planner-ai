@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Clock, ChevronDown, ChevronUp, Users, RefreshCw } from "lucide-react";
 import type { Recipe } from "../../types";
 import { Card } from "../ui/Card";
 
@@ -13,16 +13,29 @@ const mealTypeColors: Record<string, string> = {
 interface RecipeCardProps {
   recipe: Recipe;
   dayLabel?: string;
+  onRefresh?: () => Promise<void>;
 }
 
-export function RecipeCard({ recipe, dayLabel }: RecipeCardProps) {
+export function RecipeCard({ recipe, dayLabel, onRefresh }: RecipeCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  async function handleRefresh() {
+    if (!onRefresh || isRefreshing) return;
+    setIsRefreshing(true);
+    setExpanded(false);
+    try {
+      await onRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
   const totalTime = recipe.prepTime && recipe.cookTime
     ? `${recipe.prepTime} prep · ${recipe.cookTime} cook`
     : recipe.prepTime || recipe.cookTime || "";
 
   return (
-    <Card variant="bordered" className="overflow-hidden">
+    <Card variant="bordered" className={`overflow-hidden transition-opacity ${isRefreshing ? "opacity-60" : ""}`}>
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex-1 min-w-0">
@@ -40,11 +53,23 @@ export function RecipeCard({ recipe, dayLabel }: RecipeCardProps) {
           </div>
           <h3 className="font-semibold text-base leading-snug">{recipe.name}</h3>
         </div>
-        <div className="text-right shrink-0">
-          <p className="text-[var(--color-accent)] font-bold text-lg">
-            {recipe.calories}
-          </p>
-          <p className="text-xs text-[var(--color-muted)]">kcal</p>
+        <div className="flex items-start gap-2 shrink-0">
+          {onRefresh && (
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Get a different recipe"
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-colors disabled:cursor-not-allowed"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            </button>
+          )}
+          <div className="text-right">
+            <p className="text-[var(--color-accent)] font-bold text-lg">
+              {recipe.calories}
+            </p>
+            <p className="text-xs text-[var(--color-muted)]">kcal</p>
+          </div>
         </div>
       </div>
 

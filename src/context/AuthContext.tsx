@@ -18,6 +18,7 @@ interface AuthContextType {
   saveProfile: (profile: Omit<UserProfile, "userId" | "updatedAt">) => Promise<void>;
   generatePlan: () => Promise<void>;
   refreshData: () => Promise<void>;
+  refreshMeal: (day: string, mealType: string, currentMealName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -92,8 +93,28 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
     await refreshData();
   }
 
+  async function refreshMeal(day: string, mealType: string, currentMealName: string) {
+    if (!neonUser) throw new Error("User must be authenticated");
+    const result = await api.refreshMeal(neonUser.id, day, mealType, currentMealName);
+    // Patch local state instantly — no full re-fetch needed
+    setPlan((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        weeklySchedule: prev.weeklySchedule.map((d) => {
+          if (d.day !== day) return d;
+          return {
+            ...d,
+            totalCalories: result.updatedTotalCalories ?? d.totalCalories,
+            meals: d.meals.map((m) => (m.type === mealType ? result.meal : m)),
+          };
+        }),
+      };
+    });
+  }
+
   return (
-    <AuthContext.Provider value={{ user: neonUser, plan, isLoading, saveProfile, generatePlan, refreshData }}>
+    <AuthContext.Provider value={{ user: neonUser, plan, isLoading, saveProfile, generatePlan, refreshData, refreshMeal }}>
       {children}
     </AuthContext.Provider>
   );

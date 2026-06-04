@@ -63,6 +63,120 @@ export async function generateMealPlan(
   return formatResponse(parsed, profile);
 }
 
+export interface SingleMealResult {
+  type: string;
+  name: string;
+  calories: number;
+  prepTime: string;
+  cookTime: string;
+  servings: number;
+  ingredients: Array<{ name: string; amount: string }>;
+  instructions: string[];
+  nutrition: { protein: number; carbs: number; fat: number };
+}
+
+export async function regenerateSingleMeal(
+  profile: Record<string, any>,
+  day: string,
+  mealType: string,
+  currentMealName: string
+): Promise<SingleMealResult> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+
+  const openai = new OpenAI({ apiKey });
+
+  const dietMap: Record<string, string> = {
+    omnivore: "omnivore",
+    vegetarian: "vegetarian (no meat)",
+    vegan: "vegan (no animal products)",
+    keto: "ketogenic (very low carb, high fat)",
+    paleo: "paleo (no grains/legumes/dairy)",
+    mediterranean: "mediterranean",
+  };
+
+  const skillMap: Record<string, string> = {
+    beginner: "beginner cook (simple, under 30 min)",
+    intermediate: "intermediate cook (up to 45 min)",
+    advanced: "advanced cook",
+  };
+
+  const weightKg = profile.weight_lbs * 0.453592;
+  const heightCm = profile.height_inches * 2.54;
+  const isMale = profile.gender !== "female";
+  const bmr = isMale
+    ? 10 * weightKg + 6.25 * heightCm - 5 * profile.age + 5
+    : 10 * weightKg + 6.25 * heightCm - 5 * profile.age - 161;
+  const activityMultipliers: Record<string, number> = {
+    sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very_active: 1.9,
+  };
+  const goalCalAdjust: Record<string, number> = {
+    lose_weight: -500, maintain: 0, gain_weight: 300, eat_healthier: 0, build_muscle: 250,
+  };
+  const tdee = Math.round(bmr * (activityMultipliers[profile.activity_level] || 1.55));
+  const targetCalories = tdee + (goalCalAdjust[profile.goal] || 0);
+
+  const mealCalorieShare: Record<string, number> = {
+    breakfast: 0.25, lunch: 0.35, dinner: 0.35, snack: 0.1,
+  };
+  const targetMealCalories = Math.round(targetCalories * (mealCalorieShare[mealType] || 0.3));
+
+  const prompt = `Generate a single ${mealType} recipe for ${day} with these requirements:
+
+Diet: ${dietMap[profile.diet_type] || profile.diet_type}
+Cooking skill: ${skillMap[profile.cooking_skill] || profile.cooking_skill}
+Target calories: ~${targetMealCalories} kcal
+${profile.restrictions ? `Allergies/restrictions: ${profile.restrictions}` : ""}
+${profile.cuisines ? `Preferred cuisines: ${profile.cuisines}` : ""}
+Must be DIFFERENT from: "${currentMealName}"
+
+Return ONLY this JSON:
+{
+  "type": "${mealType}",
+  "name": "<recipe name>",
+  "calories": <number>,
+  "prepTime": "<X min>",
+  "cookTime": "<X min>",
+  "servings": 1,
+  "ingredients": [{ "name": "<ingredient>", "amount": "<amount>" }],
+  "instructions": ["<step 1>", "<step 2>"],
+  "nutrition": { "protein": <g>, "carbs": <g>, "fat": <g> }
+}`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-5.4-mini",
+    messages: [
+      {
+        role: "system",
+        content: "You are an expert registered dietitian. Respond with valid JSON only. No markdown, no extra text.",
+      },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.9,
+    response_format: { type: "json_object" },
+  });
+
+  const content = completion.choices[0]?.message?.content;
+  if (!content) throw new Error("No content in AI response");
+
+  const meal = JSON.parse(content);
+  return {
+    type: meal.type || mealType,
+    name: meal.name || "New Recipe",
+    calories: meal.calories || targetMealCalories,
+    prepTime: meal.prepTime || "10 min",
+    cookTime: meal.cookTime || "15 min",
+    servings: meal.servings || 1,
+    ingredients: (meal.ingredients || []).map((i: any) => ({ name: i.name || "", amount: i.amount || "" })),
+    instructions: meal.instructions || [],
+    nutrition: {
+      protein: meal.nutrition?.protein || 0,
+      carbs: meal.nutrition?.carbs || 0,
+      fat: meal.nutrition?.fat || 0,
+    },
+  };
+}
+
 function buildPrompt(profile: Record<string, any>): string {
   const goalMap: Record<string, string> = {
     lose_weight: "lose weight and reduce body fat",
